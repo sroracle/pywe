@@ -50,10 +50,9 @@ syntax match pmwikiFixFormat "\s==\S.\{-}\S==$"
 syntax match pmwikiBackslash "\\*\s*$"
 syntax match pmwikiIndent    "^-\+>"
 syntax match pmwikiTable     "||"
-syntax match pmwikiTable     "\(:table:\)"
-syntax match pmwikiTable     "\(:tableend:\)"
-syntax match pmwikiTable     "\(:cell:\)"
-syntax match pmwikiTable     "\(:cellnr:\)"
+syntax match pmwikiCommand   "\(:[^:)].\{-}\S:\)"
+syntax match pmwikiStyle     "%[^%].\{-}\S%"
+syntax match pmWikiStyleEnd  "%%"
 "
 syntax match pmwikiStrongEM  "'''''[^\'{2,5}].\{-}\S'''''" " Embolden & Emphasize Text
 syntax match pmwikiStrong    "'''[^\'{2,5}].\{-}\S'''" " Embolden & Emphasize Text
@@ -81,7 +80,7 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
 
   HiLink pmwikiBackslash    Special
 
-  HiLink pmwikiStrongEM     Identifier
+  HiLink pmwikiStrongEM     Constant
 
   HiLink pmwikiStrong       Type
   HiLink pmwikiListItem     Type
@@ -90,13 +89,15 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
 
   "HiLink pmwikiIndent       Special
 
-  HiLink pmwikiTable        PreProc
+  HiLink pmwikiCommand      PreProc
+  HiLink pmwikiStyle        Statement
+  HiLink pmwikiStyleEnd     Statement
 
   HiLink pmwikiPageNameOld  Tag
   HiLink pmwikiPageLink     Tag
   HiLink pmwikiPageName     Tag
 
-  HiLink pmwikiEM           Underlined
+  HiLink pmwikiEM           Identifier
   
   delcommand HiLink
 endif

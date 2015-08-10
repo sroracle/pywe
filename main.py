@@ -208,7 +208,7 @@ class PmwikiPage :
                 say_error(msg)
 
     def savepage(self, t):
-        fn = '%s-%d' %(self.page, time.time())
+        fn = '%s-%d.pmwiki' %(self.page, time.time())
         fn = fn.replace('/','.')
         f = open(fn,'w+')
         f.write(t)
