@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Python-bases PmWiki Editor (Pywe)
 # =================================
@@ -6,7 +6,7 @@
 # Copyright and Legalese
 # ----------------------
 #
-# Copyright (c) 2006 Benjamin C. Wilson. All Rights Reserved.  
+# Copyright (c) 2006 Benjamin C. Wilson. All Rights Reserved.
 #
 # This software referred to as Pywe ("Software") was developed by Benjamin C.
 # Wilson, and may include voluntary contributions. For more information on this
@@ -19,7 +19,7 @@
 # under this license by you is subject to the following conditions.
 #    1. Redistribution of this software is not permitted.
 #    2. Any user documentation must include the copyright statement.
-#    3. This copyright statement, disclaimers and limitations must remain with 
+#    3. This copyright statement, disclaimers and limitations must remain with
 #       the software.
 #    4. Consent to the following disclaimer and limitations of liability.
 #
@@ -32,8 +32,8 @@
 # FOR A PARTICULAR PURPOSE OR USE ARE DISCLAIMED. THE COPYRIGHT HOLDER AND
 # CONTRIBUTORS MAKE NO REPRESENTATION THAT THE SOFTWARE, MODIFICATIONS,
 # ENHANCEMENTS OR DERIVATIVE WORKS THEREOF, WILL NOT INFRINGE ANY PATENT,
-# COPYRIGHT, TRADEMARK, TRADE SECRET OR OTHER PROPRIETARY RIGHT. 
-# 
+# COPYRIGHT, TRADEMARK, TRADE SECRET OR OTHER PROPRIETARY RIGHT.
+#
 # Limitations of Liability
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 #
@@ -44,8 +44,8 @@
 # PROFITS, OR BUSINESS INTERRUPTION, HOWEVER CAUSED AND ON ANY THEORY OF
 # CONTRACT, WARRANTY, TORT (INCLUDING NEGLIGENCE), PRODUCT LIABILITY OR
 # OTHERWISE, ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. 
-# 
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+#
 # License Revisions
 # ~~~~~~~~~~~~~~~~~
 #
@@ -86,7 +86,7 @@ import urlparse
 
 #===================================
 # Various Custom Exception Classes.
-class NeedsAuthenticationError(Exception): 
+class NeedsAuthenticationError(Exception):
     def __init__(self, url=''):
         say_error("Wiki said authentication needed." + url)
 
@@ -106,14 +106,14 @@ class TempWriteError(Exception):
 # PmWiki Configuration Class
 #-----------------------------------
 class PmwikiConfig:
-    def __init__(self, dom='DEFAULT', url=None):
+    def __init__(self, dom='Default', url=None):
 
-        if dom is None: dom = 'DEFAULT'
-        dom = dom.upper()
+        if dom is None: dom = 'Default'
+        #dom = dom.upper()
 
         setattr(self,'_config',ConfigParser.ConfigParser())
-        setattr(self,'dom', dom) 
-        setattr(self,'file', os.path.expanduser('~/.pywerc'))
+        setattr(self,'dom', dom)
+        setattr(self,'file', os.path.expanduser('~/.config/pywe.ini'))
 
         c = self._config
         c.read(self.file)
@@ -171,12 +171,12 @@ class PmwikiPage :
         """Retrieves the PmWiki source from the web site"""
         source = self._fmtPage('source')
         params = urllib.urlencode({'authid' : author, 'authpw' : passwd})
-        try:                                
+        try:
             fh  = urllib.urlopen(source, params)
             content = fh.read()
             if content[4:11] == 'DOCTYPE':
                 raise NeedsAuthenticationError(self.url)
-            else: 
+            else:
                 return content
 
         except IOError:
@@ -189,7 +189,7 @@ class PmwikiPage :
         if  src == text :
             say_info("Original and revision are the same. Not uploading.")
         else :
-            if text != 'delete': 
+            if text != 'delete':
                 text = self.editMark(text)
             url = self._fmtPage('edit')
             opts = {'action' : 'edit', 'authid' : author, 'author' : author,
@@ -200,7 +200,7 @@ class PmwikiPage :
                 del(opts['authpw'])
 
             params = urllib.urlencode(opts)
-            try:                                
+            try:
                 fh  = urllib.urlopen(url, params)
             except IOError, e:
                 self.savepage(text)
@@ -218,7 +218,7 @@ class PmwikiPage :
     def editpage(self, editor, text=None):
         """Sends page to your favorite editor"""
         if text is None: text = self.readpage()
-        if len(text) == 0: 
+        if len(text) == 0:
             say_info("%s is a new page. So the contents are blank." % self.page)
             time.sleep(5)
 
@@ -226,7 +226,7 @@ class PmwikiPage :
                 'r+w', -1, '.pmwiki', 'pywe-', tempfile.tempdir
             )
         say_info("Using Tempfile: " + f.name)
-        try:                                
+        try:
             f.write(text)
             f.flush()
             f.seek(0)
@@ -284,7 +284,7 @@ def shorthelp(option, opt_str, value, p):
     def getem(d,k):
         ret = ''
         try:
-            if d.has_key(k) and d[k] is not None: 
+            if d.has_key(k) and d[k] is not None:
                 if isinstance(d[k], list) and len(d[k]): ret = d[k][0]
                 elif not len(d[k]): ret = ''
                 else: ret = d[k]
@@ -316,11 +316,11 @@ def shorthelp(option, opt_str, value, p):
         e = "%s" % o # Options convert to strings when asked.
         e = e.split('/')[0]
         e = e[e.rindex('-')+1:]
-        opt[e] = { 
-            'help': o.help, 
-            'short': o._short_opts, 
-            'long': o._long_opts, 
-            'dest': o.dest, 
+        opt[e] = {
+            'help': o.help,
+            'short': o._short_opts,
+            'long': o._long_opts,
+            'dest': o.dest,
         }
         if not len(opt[e]['short']) : opt[e]['short'] = None
 
@@ -354,7 +354,7 @@ def checkApp(o, a, m):
       'nobrowser': "You must configure a browser to us this option."
     }
     check = a.split(' ',1)[0]
-    
+
     a = findApp(check)
     if not os.path.isfile(check): say_error(msg[m])
     return True
@@ -363,7 +363,7 @@ def checkApp(o, a, m):
 # Main:
 #-----------------------------------
 def main(argv=None):
-    dom = 'DEFAULT'
+    dom = 'Default'
     page = None
     url = None
 
@@ -383,7 +383,7 @@ def main(argv=None):
         page = '.'.join([group,page])
         return url, page
 
-    # TODO: Commented options are not available at time of publication. 
+    # TODO: Commented options are not available at time of publication.
     #       Planned. v.1.3.0
     #-----------------------------------
     # Optparse allows me to easily set up the base options. Additionally, it
@@ -391,7 +391,7 @@ def main(argv=None):
     p = optparse.OptionParser(
             conflict_handler="resolve",version="%prog "+__version__)
     p.add_option(
-            '-a','--author',dest='author', 
+            '-a','--author',dest='author',
             help="sets author's name from the command line")
     p.add_option(
             '-b',action='store_true',dest='browse',
@@ -403,13 +403,13 @@ def main(argv=None):
             '-d','--delete',action='store_true',dest='delete',
             help='Allows deletion of a page.')
     p.add_option(
-            '-e','--editor',dest='editor', 
+            '-e','--editor',dest='editor',
             help='sets editor (full path) from the command line.')
     p.add_option(
-            '-i','--inject',dest='inject', 
+            '-i','--inject',dest='inject',
             help='inject local source text file into wiki.')
     p.add_option(
-            '-h','--help',action='callback', callback=shorthelp, 
+            '-h','--help',action='callback', callback=shorthelp,
             help='show this help message and exit.')
     p.add_option(
             '-j','--journal',action='store_true',
@@ -454,7 +454,7 @@ def main(argv=None):
     else: password = getpass.getpass()
 
     #-----------------------------------
-    # Looking for an inject source. 
+    # Looking for an inject source.
     if option.inject:
         if os.path.isfile(option.inject):
             say_info("Injecting: "+page+" ("+c.url+")")
@@ -479,14 +479,14 @@ def main(argv=None):
 
         say_info("Editing: "+page+" ("+c.url+")")
         src = pm.readpage(c.author, password)
-        if option.pull: 
+        if option.pull:
             say_info("Pulling: "+page+" ("+c.url+")")
             print pm.savepage(src)
             sys.exit(0)
         else:
             new = pm.editpage(c.editor, src)
 
-    if (option.keep or c.keep): 
+    if (option.keep or c.keep):
         pm.savepage(new)
 
     pm.writepage(new, src, c.author, password)
