@@ -98,7 +98,7 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
   HiLink pmwikiPageName     Tag
 
   HiLink pmwikiEM           Identifier
-  
+
   delcommand HiLink
 endif
 

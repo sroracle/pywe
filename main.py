@@ -1,4 +1,5 @@
 #!/usr/bin/python2
+# vim: sw=4:ts=4:sts=4
 # Python-bases PmWiki Editor (Pywe)
 # =================================
 # Copyright (c) 2006 Benjamin C. Wilson. All Rights Reserved.
@@ -8,54 +9,61 @@
 # Software version: v1.2 - Public Release June 2, 2006
 # Software version: v1.3 - Public Release February 7, 2007
 # Software version: v1.3.1 - Public Release February 9, 2007
-__version__ = "v1.3.1 - February 9, 2007"
-import ConfigParser
-import getpass
-import logging
-import optparse
-import os
-import re
-import signal
-import string
-import sys
-import tempfile
-import time
-import urllib
-import urlparse
+__version__ = 'v1.3.1 - February 9, 2007'
+from   ConfigParser import ConfigParser, DEFAULTSECT
+from   getpass      import getpass
+import logging      #      basicConfig, error, info
+from   optparse     import OptionParser
+import os           #      path, system
+import re           #      compile, sub
+import sys          #      argv, exit, path, stderr
+from   tempfile     import NamedTemporaryFile, tempdir
+from   time         import strftime
+from   urllib       import urlencode, urlopen
+from   urlparse     import urljoin, urlsplit
 
 #===================================
 # Various Custom Exception Classes.
-class NeedsAuthenticationError(Exception):
+class Unauthorized(Exception):
     def __init__(self, url=''):
-        say_error("Wiki said authentication needed." + url)
+        say_error('Wiki said authentication needed.' + url)
 
-class NoEditorError(Exception):
+class NoEditor(Exception):
     def __init__(self, msg):
         say_error(msg)
 
-class NoSourceFileError(Exception):
+class NoSource(Exception):
     def __init__(self):
-        say_error("No local source file to read from.")
+        say_error('No local source file to read from.')
 
 class TempWriteError(Exception):
     def __init__(self):
-        say_error("Could not write to the temporary file")
+        say_error('Could not write to the temporary file')
+
+class MultipleDomains(Exception):
+    def __init__(self):
+        say_error('No domain specified and multiple domains are configured, not guessing.')
+
+class NoDomains(Exception):
+    def __init__(self):
+        say_error("You don't have any domains configured.")
 
 #===================================
 # PmWiki Configuration Class
 #-----------------------------------
 class PmwikiConfig:
     def __init__(self, dom, api):
-        self.dom = dom
         self.api = api
-        c = self._config = ConfigParser.ConfigParser()
+        c = self._config = ConfigParser()
         self.file = os.path.expanduser('~/.config/pywe.ini')
 
         c.read(self.file)
+        self.doms = c.sections()
         layout = {
             'api': str,
             'author': str,
             'browser': str,
+            'deleteword':  str,
             'editor': str,
             'enablepathinfo': bool,
             'keep': bool,
@@ -63,19 +71,21 @@ class PmwikiConfig:
             'password': str,
             'url': str,
         }
-        defaults = ConfigParser.DEFAULTSECT
+        if not dom:
+            if len(self.doms) == 1:
+                self.dom = dom = self.doms[0]
+                say_info('No domain specified, using "' + self.dom + '"')
+            elif len(self.doms) > 1: raise MultipleDomains
+            else: raise NoDomains
+
         for option in layout.keys():
             if c.has_section(dom) and c.has_option(dom, option):
                 if layout[option] is str: val = c.get(dom, option)
                 elif layout[option] is bool: val = c.getboolean(dom, option)
-            elif c.has_section(defaults) and c.has_option(defaults, option):
-                if layout[option] is str: val = c.get(defaults, option)
-                elif layout[option] is bool: val = c.getboolean(defaults, option)
-            else: val = False
-            if val == 'yes': val = True
-            elif val == 'no' : val = False
+            else: val = ''
             setattr(self, option, val)
         if not self.url: self.url = self.api
+        if not self.deleteword: self.deleteword = 'delete'
 
 #===================================
 # PmWiki Page Class
@@ -93,25 +103,25 @@ class PmwikiPage :
         api = self.api
         if self.enablepathinfo:
             if api[-1] != '/': api += '/'
-            return urlparse.urljoin(api, page) + '?action=' + action
+            return urljoin(api, page) + '?action=' + action
         else:
             api = re.sub('/$','',api)
             page = re.sub('/','.', page)
             return '%s?n=%s&action=%s' % (api, page, action)
 
     def pull(self, author='', passwd=None):
-        """Retrieves the PmWiki source from the website"""
+        '''Retrieves the PmWiki source from the website'''
         source = self._fmtPage('source')
-        params = urllib.urlencode({'authid' : author, 'authpw' : passwd})
+        payload = urlencode({'authid' : author, 'authpw' : passwd})
         try:
-            fh  = urllib.urlopen(source, params)
+            fh  = urlopen(source, payload)
             content = fh.read()
-            if content[4:11] == 'DOCTYPE': raise NeedsAuthenticationError(self.api)
+            if content[4:11] == 'DOCTYPE': raise Unauthorized(self.api)
             else: return content
-        except IOError: say_error("Could not access: " + self.api)
+        except IOError: say_error('Could not access: ' + self.api)
 
     def push(self, text, src, author='', passwd=None):
-        """Writes the page back to the website"""
+        '''Writes the page back to the website'''
         if  src == text:
             say_info("Aborting write: you didn't make any changes!")
         else:
@@ -130,11 +140,11 @@ class PmwikiPage :
                 del(payload['authid'])
                 del(payload['authpw'])
 
-            payload = urllib.urlencode(payload)
-            try: post  = urllib.urlopen(api, params)
+            payload = urlencode(payload)
+            try: post  = urlopen(api, payload)
             except IOError, e:
                 fn = self.savepage(text)
-                msg = "Failed to write to website: %s\nChanges saved to '%s'" % (e, fn)
+                msg = 'Failed to write to website: %s\nChanges saved to "%s"' % (e, fn)
                 say_error(msg)
 
     def savepage(self, t):
@@ -146,13 +156,13 @@ class PmwikiPage :
         return fn
 
     def open(self, editor, text):
-        """Open the page in your favorite editor"""
+        '''Open the page in your favorite editor'''
         if len(text) == 0:
-            say_info("New page: %s" % self.page)
-            text = "(:comment %s is a new page, save as empty to abort:)" % self.page
+            say_info('New page: %s' % self.page)
+            text = '(:comment %s is a new page, save as empty to abort:)' % self.page
 
-        f = tempfile.NamedTemporaryFile('r+w', -1, '.pmwiki', 'pywe-', tempfile.tempdir)
-        say_info("Using tempfile: " + f.name, 1)
+        f = NamedTemporaryFile('r+w', -1, '.pmwiki', 'pywe-', tempdir)
+        say_info('Using tempfile: ' + f.name, 1)
         try:
             f.write(text)
             f.flush()
@@ -174,112 +184,33 @@ class PmwikiPage :
        #t += m
         return t
 
-def findApp(f,m="Could not find application: "):
-    """If we don't have the application at first, we go looking."""
+def findApp(f,m='Could not find application: '):
+    '''If we don't have the application at first, we go looking.'''
     if os.path.isfile(f): return f
     dirs = sys.path
     dirs.insert(0,os.environ['HOME'])
     for d in dirs:
       c = os.path.join(d, f)
       if os.path.isfile(c): return c
-    raise NoEditorError(m+f)
+    raise NoEditor(m+f)
 
 def say_info(msg, squash=0):
     # TODO: global debug var
     if squash: return
-    sys.stderr.write(msg+"\n")
+    sys.stderr.write(msg+'\n')
     logging.info(msg)
 
 def say_error(msg):
-    """Prints errors to stderr, logs the error and quits."""
-    sys.stderr.write(msg)
+    '''Prints errors to stderr, logs the error and quits.'''
+    sys.stderr.write(msg + '\n')
     logging.error(msg)
-    sys.exit(0)
-
-def shorthelp(option, opt_str, value, p):
-    """Prints terse help message in technicolor"""
-    esc_seq = "\x1b["
-    codes = {}
-    codes["reset"] = esc_seq + "39;49;00m"
-    codes["bold"] = esc_seq + "01m"
-    codes["green"] = esc_seq + "32;01m"
-    codes["turq"] = esc_seq + "36;01m"
-    def green(txt): return "%s%s%s" % (codes["green"],txt,codes["reset"])
-    def bold(txt): return "%s%s%s" % (codes["bold"],txt,codes["reset"])
-    def turq(txt): return "%s%s%s" % (codes["turq"],txt,codes["reset"])
-
-    opt = {}
-    def getem(d,k):
-        ret = ''
-        try:
-            if d.has_key(k) and d[k] is not None:
-                if isinstance(d[k], list) and len(d[k]): ret = d[k][0]
-                elif not len(d[k]): ret = ''
-                else: ret = d[k]
-        except:
-            print d
-        return ret
-
-    def help_msg(d,k,m=1):
-        s = getem(d[k],'short')
-        l = getem(d[k],'long')
-        dst = getem(d[k],'dest')
-        h = getem(d[k],'help')
-        d = dst.upper()
-        if len(dst) and len(l): dl = "="+dst.upper()
-        else: dl = ''
-
-        if len(s):
-            if len(d): d = ' '+d
-            out = "%s%s, %s%s" % (s,d,l,dl)
-            pad = 36
-            clor = "  %s%s, %s%s" % (green(s),turq(d), green(l),turq(dl))
-        else:
-            out = "  %s%s" % (l,dl)
-            pad = 38
-            clor = "  %s%s" % (green(l),turq(dl))
-        return clor + (' '* (pad - len(out))) + h
-
-    for o in p.option_list:
-        e = "%s" % o # Options convert to strings when asked.
-        e = e.split('/')[0]
-        e = e[e.rindex('-')+1:]
-        opt[e] = {
-            'help': o.help,
-            'short': o._short_opts,
-            'long': o._long_opts,
-            'dest': o.dest,
-        }
-        if not len(opt[e]['short']) : opt[e]['short'] = None
-
-    prog = turq('pywe')
-    opts = "[ %s ]" % green('options')
-    acts = "[ %s ]" % green('action')
-
-    print bold("\nUsage:")
-    print '  '+' '.join([prog, opts, acts, turq('dom:Group.Pagename' )])
-    print '  '+' '.join(
-      [prog, opts, acts, turq('http://www.example.org/pmwiki.php/Main/Sandbox')]
-    )
-    print '  '+' '.join([prog, turq('--help')])
-    print bold("Options:")
-
-    #-----------------------------------
-    # The DRY principle in motion. All the work above allows adding an option
-    # to Optparse that will dynamically print a short message about itself when
-    # asked.
-    keys = opt.keys()
-    keys.sort()
-    for k in keys: print help_msg(opt,k)
-
-    print
     sys.exit(0)
 
 def checkApp(o, a, m):
     if not o: return 0
     msg = {
-      'noeditor': "You must configure an editor to edit a page.",
-      'nobrowser': "You must configure a browser to us this option."
+      'noeditor': 'You must configure an editor to edit a page.',
+      'nobrowser': 'You must configure a browser to us this option.'
     }
     check = a.split(' ',1)[0]
 
@@ -291,31 +222,11 @@ def checkApp(o, a, m):
 # Main:
 #-----------------------------------
 def main(argv=None):
-    dom = 'Default'
     page = None
     api = None
 
-    def siftUrl(s):
-        """Tries to produce a valid web page when user munges things"""
-        page = group = ''
-        bits = urlparse.urlsplit(s)
-        api = '://'.join([bits[0],bits[1]]) + '/' # http://www.example.org/
-        query = bits[2].split('/')
-        if '' in query: query.remove('')
-        if len(query) > 1: page = query.pop()
-        if len(query) > 0 and query[-1][0] == query[-1].capitalize()[0]:
-            group = query.pop()
-        if len(query): api += '/'.join(query) + '/'
-        if page == '': page = 'Main'
-        if group == '': group = 'Main'
-        page = '.'.join([group,page])
-        return api, page
-
-    #-----------------------------------
-    # Optparse allows me to easily set up the base options. Additionally, it
-    # lets me add an option here and it will appear in the shorthelp display.
-    p = optparse.OptionParser(
-            conflict_handler="resolve",version="%prog "+__version__)
+    p = OptionParser(
+            conflict_handler='resolve',version='%prog '+__version__)
     p.add_option(
             '-a','--author',dest='author',
             help="sets author's name from the command line")
@@ -326,17 +237,11 @@ def main(argv=None):
             '-c','--calendar',action='store_true',
             help="append today's date to page")
     p.add_option(
-            '-d','--delete',action='store_true',dest='delete',
-            help='Allows deletion of a page.')
+            '-d','--domain',dest='domain',
+            help='Specify domain to use.')
     p.add_option(
             '-e','--editor',dest='editor',
             help='sets editor (full path) from the command line.')
-    p.add_option(
-            '-i','--inject',dest='inject',
-            help='inject local source text file into wiki.')
-    p.add_option(
-            '-h','--help',action='callback', callback=shorthelp,
-            help='show this help message and exit.')
     p.add_option(
             '-j','--journal',action='store_true',
             help="append today's date to page")
@@ -347,26 +252,26 @@ def main(argv=None):
             '-n','--nopass',action='store_true',dest='nopass',
             help='site does not require a password.')
     p.add_option(
-            '-p','--pull',action='store_true',dest='pull',
-            help='pull source and save locally sans editing.')
-    p.add_option(
             '-v','--debug',action='store_true',dest='debug')
     option, args = p.parse_args()
-    # - Done Optparse: options are in "option" object.
 
-    argv_e = {
-        'mas' : "Too many arguments.",
-    }
-
-    if len(args):
-        try: (dom, page) = args[0].split(':')
-        except ValueError:
-            dom = 'Default'
-            page = args[0]
-        if dom == 'http': api, page = siftUrl(args[0])
-
+    if not len(args) or args[0] not in ('push', 'pull', 'edit', 'delete', 'list'):
+        say_error('Must command a push, pull, edit, delete, or list. Use --help for options.')
+    option.command = args[0]
+    dom = option.domain
     c = PmwikiConfig(dom, api)
-    if not page: page = c.page
+
+    if option.command == 'list':
+        print 'Configured domains:'
+        print
+        for dom in c.doms: print dom
+        sys.exit(0)
+
+    if len(args) < 2:
+        say_error('Must provide a page to use.')
+
+    try: page = args[1]
+    except IndexError: page = c.page
     page_group = page.split('.')[0]
     page_name = page.split('.')[1]
     c.url = c.url.replace('$Group', page_group).replace('$Name', page_name)
@@ -381,39 +286,40 @@ def main(argv=None):
     if (option.keep): c.keep = option.keep
 
     #-----------------------------------
-    # Get the password.
+    # Password management
     if option.nopass: password = None
     elif c.password and not option.nopass: password = c.password
-    else: password = getpass.getpass()
+    else: password = getpass()
 
     #-----------------------------------
-    # Looking for an inject source.
-    if option.inject:
-        if os.path.isfile(option.inject):
-            say_info("Injecting: "+page+" ("+c.url+")")
-            f = open(option.inject,'r')
+    # Command management
+    if option.command == 'push':
+        if os.path.isfile(page):
+            say_info('Pushing: '+page+' ('+c.url+')')
+            f = open(page, 'r')
             new = f.read()
             f.close()
             src = ''
+            if page.endswith('.pmwiki'): pm.page = page.replace('.pmwiki', '')
         else:
-            raise NoSourceFileError
+            raise NoSource
 
-    elif option.delete:
-        delete = raw_input("Deleting: "+page+". Are you sure? (Type delete)\n")
+    elif option.command == 'delete':
+        delete = raw_input('Deleting: '+page+'. Are you sure? (Type delete)\n')
         if delete == 'delete':
             src = ''
-            new = 'delete'
+            new = c.deleteword
         else:
-            print "Deletion aborted."
+            print 'Deletion aborted.'
             sys.exit(0)
     else:
-        if option.journal: pm.page += time.strftime('-%Y-%m-%d')
-        if option.calendar: pm.page += time.strftime('%Y%m%d')
+        if option.journal: pm.page += strftime('-%Y-%m-%d')
+        if option.calendar: pm.page += strftime('%Y%m%d')
 
-        say_info("Editing: "+page+" ("+c.url+")")
+        say_info('Editing: '+page+' ('+c.url+')')
         src = pm.pull(c.author, password)
-        if option.pull:
-            say_info("Pulling: "+page+" ("+c.url+")")
+        if option.command == 'pull':
+            say_info('Pulling: '+page+' ('+c.url+')')
             print pm.savepage(src)
             sys.exit(0)
         else:
@@ -425,7 +331,7 @@ def main(argv=None):
     pm.push(new, src, c.author, password)
 
     if checkApp(option.browse, c.browser, 'nobrowser'):
-        cmd = "%s %s" % (c.browser, c.url)
+        cmd = '%s %s' % (c.browser, c.url)
         os.system(cmd)
 
 if __name__ == '__main__':
@@ -437,7 +343,7 @@ if __name__ == '__main__':
             level=logging.ERROR,
             format='%(asctime)s %(levelname)-8s %(message)s',
             datefmt='%a, %d %b %Y %H:%M:%S',
-            filename = "/tmp/pywe.log",
+            filename = '/tmp/pywe.log',
             filemode='a+')
     except TypeError:
         logging.basicConfig()
@@ -446,4 +352,3 @@ if __name__ == '__main__':
         main(sys.argv[1:])
     except KeyboardInterrupt:
         say_error('User terminated program via keyboard')
-
