@@ -1,5 +1,7 @@
 * Merge PmwikiPage and PmwikiConfig?
-* Do something with PmwikiPage.editMark()
 * Verbosity level support
 * Fix logger
 * tmpfiles: make a directory and use real page name as file name
+* move to Python 3
+* use subcommands <https://docs.python.org/2/library/argparse.html#sub-commands>
+  * this requires cutting the subcommands into separate functions
