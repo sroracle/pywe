@@ -1,0 +1,3 @@
+* Use OptionParser as-is, without the colored ouput
+* Merge PmwikiPage and PmwikiConfig?
+* Do something with PmwikiPage.editMark()

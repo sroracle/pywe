@@ -205,26 +205,23 @@ class PmwikiPage :
         f.close()
         return fn
 
-    def editpage(self, editor, text=None):
-        """Sends page to your favorite editor"""
-        if text is None: text = self.pull()
+    def open(self, editor, text):
+        """Open the page in your favorite editor"""
         if len(text) == 0:
-            say_info("%s is a new page. So the contents are blank." % self.page)
-            time.sleep(5)
+            say_info("New page: %s" % self.page)
+            text = "(:comment %s is a new page, save as empty to abort:)" % self.page
 
-        f = tempfile.NamedTemporaryFile(
-                'r+w', -1, '.pmwiki', 'pywe-', tempfile.tempdir
-            )
-        say_info("Using Tempfile: " + f.name, 1)
+        f = tempfile.NamedTemporaryFile('r+w', -1, '.pmwiki', 'pywe-', tempfile.tempdir)
+        say_info("Using tempfile: " + f.name, 1)
         try:
             f.write(text)
             f.flush()
             f.seek(0)
-        except IOError:
-            raise TempWriteError
+        except IOError: raise TempWriteError
 
         cmd = editor + ' ' + f.name
         os.system(cmd)
+
         output = f.read()
         f.close()
         return output
@@ -236,8 +233,6 @@ class PmwikiPage :
        #t = m_RE.sub('', t)
        #t += m
         return t
-
-# class PmWikiPage
 
 def findApp(f,m="Could not find application: "):
     """If we don't have the application at first, we go looking."""
@@ -482,7 +477,7 @@ def main(argv=None):
             print pm.savepage(src)
             sys.exit(0)
         else:
-            new = pm.editpage(c.editor, src)
+            new = pm.open(c.editor, src)
 
     if (option.keep or c.keep):
         pm.savepage(new)
