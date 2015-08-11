@@ -1,3 +1,4 @@
+<<<<<<< fae03056c97fc307c7940bbbbca1211c178389bb
 
 ## FAQ
 
@@ -129,3 +130,7 @@ I would rather have one solid copy than various derivatives. If you'd like to co
 * v.1.2.0 June 2, 2006 Implemented Injection feature. BenWilson June 02, 2006, at 11:02 PM
 * v.1.1.1 May 30, 2006 Fixed broken journal option. BenWilson May 30, 2006, at 05:40 PM
 * v.1.1.0 May 29, 2006 Initial Public Release. BenWilson May 29, 2006, at 12:12 PM
+=======
+Based off of the original cookbook recipe
+[pywe](http://www.pmwiki.org/wiki/Cookbook/Pywe) by Ben Wilson
+>>>>>>> Pretty URLs and clean up PmwikiConfig

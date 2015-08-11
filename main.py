@@ -69,15 +69,14 @@
 # Software version: v1.3 - Public Release February 7, 2007
 # Software version: v1.3.1 - Public Release February 9, 2007
 __version__ = "v1.3.1 - February 9, 2007"
-
 import ConfigParser
-import optparse
 import getpass
 import logging
+import optparse
 import os
 import re
-import string
 import signal
+import string
 import sys
 import tempfile
 import time
@@ -106,66 +105,59 @@ class TempWriteError(Exception):
 # PmWiki Configuration Class
 #-----------------------------------
 class PmwikiConfig:
-    def __init__(self, dom='Default', url=None):
+    def __init__(self, dom, api):
+        self.dom = dom
+        self.api = api
+        c = self._config = ConfigParser.ConfigParser()
+        self.file = os.path.expanduser('~/.config/pywe.ini')
 
-        if dom is None: dom = 'Default'
-        #dom = dom.upper()
-
-        setattr(self,'_config',ConfigParser.ConfigParser())
-        setattr(self,'dom', dom)
-        setattr(self,'file', os.path.expanduser('~/.config/pywe.ini'))
-
-        c = self._config
         c.read(self.file)
-
-        config_keys = [
-            'author',
-            'browser',
-            'editor',
-            'enablepathinfo',
-            'keep',
-            'page',
-            'password',
-            'url',
-        ]
-        defaults = c.defaults()
-        for option in config_keys:
-            val = ''
+        layout = {
+            'api': str,
+            'author': str,
+            'browser': str,
+            'editor': str,
+            'enablepathinfo': bool,
+            'keep': bool,
+            'page': str,
+            'password': str,
+            'url': str,
+        }
+        defaults = ConfigParser.DEFAULTSECT
+        for option in layout.keys():
             if c.has_section(dom) and c.has_option(dom, option):
-                val = c.get(dom,option)
-            elif defaults.has_key(option):
-                val = defaults[option]
-            else: val = 0
-
-            if val == 'yes': val = 1
-            elif val == 'no' : val = 0
-            setattr(self,option,val)
-
-        if url is not None: self.url = url
-# class PmwikiClass
-
+                if layout[option] is str: val = c.get(dom, option)
+                elif layout[option] is bool: val = c.getboolean(dom, option)
+            elif c.has_section(defaults) and c.has_option(defaults, option):
+                if layout[option] is str: val = c.get(defaults, option)
+                elif layout[option] is bool: val = c.getboolean(defaults, option)
+            else: val = False
+            if val == 'yes': val = True
+            elif val == 'no' : val = False
+            setattr(self, option, val)
+        if not self.url: self.url = self.api
 
 #===================================
 # PmWiki Page Class
 #-----------------------------------
 class PmwikiPage :
-    def __init__(self, url, page, epi):
+    def __init__(self, api, page, epi):
         setattr(self, 'enablepathinfo', epi)
         setattr(self, 'page', page)
         setattr(self, 'passwd', None)
         setattr(self, 'text', None)
-        setattr(self, 'url', url)
+        setattr(self, 'api', api)
 
     def _fmtPage(self, action):
         page = self.page
-        url = self.url
+        api = self.api
         if self.enablepathinfo:
-            if url[-1] != '/': url += '/'
-            return urlparse.urljoin(url, page) + '?action=' + action
+            if api[-1] != '/': api += '/'
+            return urlparse.urljoin(api, page) + '?action=' + action
         else:
-            url = re.sub('/$','',url)
+            api = re.sub('/$','',api)
             page = re.sub('/','.', page)
-            return '%s?n=%s&action=%s' % (url, page, action)
+            return '%s?n=%s&action=%s' % (api, page, action)
 
     def readpage(self, author='', passwd=None):
         """Retrieves the PmWiki source from the web site"""
@@ -175,23 +167,23 @@ class PmwikiPage :
             fh  = urllib.urlopen(source, params)
             content = fh.read()
             if content[4:11] == 'DOCTYPE':
-                raise NeedsAuthenticationError(self.url)
+                raise NeedsAuthenticationError(self.api)
             else:
                 return content
 
         except IOError:
-            say_error("Could not access: " + self.url)
+            say_error("Could not access: " + self.api)
 
     def writepage(self, text, src, author='', passwd=None):
         """Writes the page back to the web site"""
         page = self.page
-        url = self.url
+        api = self.api
         if  src == text :
             say_info("Original and revision are the same. Not uploading.")
         else :
             if text != 'delete':
                 text = self.editMark(text)
-            url = self._fmtPage('edit')
+            api = self._fmtPage('edit')
             opts = {'action' : 'edit', 'authid' : author, 'author' : author,
              'authpw' : passwd, 'n' : page, 'post' : 1, 'text' : text
             }
@@ -201,14 +193,14 @@ class PmwikiPage :
 
             params = urllib.urlencode(opts)
             try:
-                fh  = urllib.urlopen(url, params)
+                fh  = urllib.urlopen(api, params)
             except IOError, e:
                 self.savepage(text)
                 msg = "Failed Write to web site, check for '%s' (%s)" % (fn, e)
                 say_error(msg)
 
     def savepage(self, t):
-        fn = '%s-%d.pmwiki' %(self.page, time.time())
+        fn = '%s.pmwiki' % self.page
         fn = fn.replace('/','.')
         f = open(fn,'w+')
         f.write(t)
@@ -225,7 +217,7 @@ class PmwikiPage :
         f = tempfile.NamedTemporaryFile(
                 'r+w', -1, '.pmwiki', 'pywe-', tempfile.tempdir
             )
-        say_info("Using Tempfile: " + f.name)
+        say_info("Using Tempfile: " + f.name, 1)
         try:
             f.write(text)
             f.flush()
@@ -240,10 +232,11 @@ class PmwikiPage :
         return output
 
     def editMark(self, t) :
-        m = "\n(:comment This page has been edited using Pywe:)"
-        m_RE = re.compile("\n+\(:comment This page has been edited using Pywe:\)")
-        t = m_RE.sub('', t)
-        t += m
+       # TODO: make optional... for now, disabled
+       #m = "\n(:comment This page has been edited using Pywe:)"
+       #m_RE = re.compile("\n+\(:comment This page has been edited using Pywe:\)")
+       #t = m_RE.sub('', t)
+       #t += m
         return t
 
 # class PmWikiPage
@@ -258,7 +251,9 @@ def findApp(f,m="Could not find application: "):
       if os.path.isfile(c): return c
     raise NoEditorError(m+f)
 
-def say_info(msg):
+def say_info(msg, squash=0):
+    # TODO: global debug var
+    if squash: return
     sys.stderr.write(msg+"\n")
     logging.info(msg)
 
@@ -365,23 +360,23 @@ def checkApp(o, a, m):
 def main(argv=None):
     dom = 'Default'
     page = None
-    url = None
+    api = None
 
     def siftUrl(s):
         """Tries to produce a valid web page when user munges things"""
         page = group = ''
         bits = urlparse.urlsplit(s)
-        url = '://'.join([bits[0],bits[1]]) + '/' # http://www.example.org/
+        api = '://'.join([bits[0],bits[1]]) + '/' # http://www.example.org/
         query = bits[2].split('/')
         if '' in query: query.remove('')
         if len(query) > 1: page = query.pop()
         if len(query) > 0 and query[-1][0] == query[-1].capitalize()[0]:
             group = query.pop()
-        if len(query): url += '/'.join(query) + '/'
+        if len(query): api += '/'.join(query) + '/'
         if page == '': page = 'Main'
         if group == '': group = 'Main'
         page = '.'.join([group,page])
-        return url, page
+        return api, page
 
     # TODO: Commented options are not available at time of publication.
     #       Planned. v.1.3.0
@@ -424,7 +419,7 @@ def main(argv=None):
             '-p','--pull',action='store_true',dest='pull',
             help='pull source and save locally sans editing.')
     p.add_option(
-            '-v','--verbose',type='int',dest='verbose')
+            '-v','--debug',action='store_true',dest='debug')
     option, args = p.parse_args()
     # - Done Optparse: options are in "option" object.
 
@@ -433,13 +428,19 @@ def main(argv=None):
     }
 
     if len(args):
-        (dom, page) = args[0].split(':')
-        if dom == 'http': url, page = siftUrl(args[0])
+        try: (dom, page) = args[0].split(':')
+        except ValueError:
+            dom = 'Default'
+            page = args[0]
+        if dom == 'http': api, page = siftUrl(args[0])
 
-    c = PmwikiConfig(dom, url)
+    c = PmwikiConfig(dom, api)
     if not page: page = c.page
+    page_group = page.split('.')[0]
+    page_name = page.split('.')[1]
+    c.url = c.url.replace('$Group', page_group).replace('$Name', page_name)
 
-    pm = PmwikiPage(c.url, page, c.enablepathinfo)
+    pm = PmwikiPage(c.api, page, c.enablepathinfo)
 
     #-----------------------------------
     # Editor checksum
@@ -450,7 +451,8 @@ def main(argv=None):
 
     #-----------------------------------
     # Get the password.
-    if option.nopass or not c.password: password = None
+    if option.nopass: password = None
+    elif c.password and not option.nopass: password = c.password
     else: password = getpass.getpass()
 
     #-----------------------------------
