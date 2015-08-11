@@ -142,11 +142,11 @@ class PmwikiConfig:
 #-----------------------------------
 class PmwikiPage :
     def __init__(self, api, page, epi):
-        setattr(self, 'enablepathinfo', epi)
-        setattr(self, 'page', page)
-        setattr(self, 'passwd', None)
-        setattr(self, 'text', None)
-        setattr(self, 'api', api)
+        self.api = api
+        self.page = page
+        self.enablepathinfo = epi
+        self.passwd = None
+        self.text = None
 
     def _fmtPage(self, action):
         page = self.page
@@ -159,57 +159,55 @@ class PmwikiPage :
             page = re.sub('/','.', page)
             return '%s?n=%s&action=%s' % (api, page, action)
 
-    def readpage(self, author='', passwd=None):
-        """Retrieves the PmWiki source from the web site"""
+    def pull(self, author='', passwd=None):
+        """Retrieves the PmWiki source from the website"""
         source = self._fmtPage('source')
         params = urllib.urlencode({'authid' : author, 'authpw' : passwd})
         try:
             fh  = urllib.urlopen(source, params)
             content = fh.read()
-            if content[4:11] == 'DOCTYPE':
-                raise NeedsAuthenticationError(self.api)
-            else:
-                return content
+            if content[4:11] == 'DOCTYPE': raise NeedsAuthenticationError(self.api)
+            else: return content
+        except IOError: say_error("Could not access: " + self.api)
 
-        except IOError:
-            say_error("Could not access: " + self.api)
-
-    def writepage(self, text, src, author='', passwd=None):
-        """Writes the page back to the web site"""
-        page = self.page
-        api = self.api
-        if  src == text :
-            say_info("Original and revision are the same. Not uploading.")
-        else :
-            if text != 'delete':
-                text = self.editMark(text)
+    def push(self, text, src, author='', passwd=None):
+        """Writes the page back to the website"""
+        if  src == text:
+            say_info("Aborting write: you didn't make any changes!")
+        else:
+            if text != 'delete': text = self.editMark(text)
             api = self._fmtPage('edit')
-            opts = {'action' : 'edit', 'authid' : author, 'author' : author,
-             'authpw' : passwd, 'n' : page, 'post' : 1, 'text' : text
+            payload = {
+                'action': 'edit',
+                'authid': author,
+                'author': author,
+                'authpw': passwd,
+                'n': self.page,
+                'post': 1,
+                'text': text
             }
             if passwd is None:
-                del(opts['authid'])
-                del(opts['authpw'])
+                del(payload['authid'])
+                del(payload['authpw'])
 
-            params = urllib.urlencode(opts)
-            try:
-                fh  = urllib.urlopen(api, params)
+            payload = urllib.urlencode(payload)
+            try: post  = urllib.urlopen(api, params)
             except IOError, e:
-                self.savepage(text)
-                msg = "Failed Write to web site, check for '%s' (%s)" % (fn, e)
+                fn = self.savepage(text)
+                msg = "Failed to write to website: %s\nChanges saved to '%s'" % (e, fn)
                 say_error(msg)
 
     def savepage(self, t):
         fn = '%s.pmwiki' % self.page
         fn = fn.replace('/','.')
-        f = open(fn,'w+')
+        f = open(fn, 'w')
         f.write(t)
         f.close()
         return fn
 
     def editpage(self, editor, text=None):
         """Sends page to your favorite editor"""
-        if text is None: text = self.readpage()
+        if text is None: text = self.pull()
         if len(text) == 0:
             say_info("%s is a new page. So the contents are blank." % self.page)
             time.sleep(5)
@@ -378,8 +376,6 @@ def main(argv=None):
         page = '.'.join([group,page])
         return api, page
 
-    # TODO: Commented options are not available at time of publication.
-    #       Planned. v.1.3.0
     #-----------------------------------
     # Optparse allows me to easily set up the base options. Additionally, it
     # lets me add an option here and it will appear in the shorthelp display.
@@ -480,7 +476,7 @@ def main(argv=None):
         if option.calendar: pm.page += time.strftime('%Y%m%d')
 
         say_info("Editing: "+page+" ("+c.url+")")
-        src = pm.readpage(c.author, password)
+        src = pm.pull(c.author, password)
         if option.pull:
             say_info("Pulling: "+page+" ("+c.url+")")
             print pm.savepage(src)
@@ -491,7 +487,7 @@ def main(argv=None):
     if (option.keep or c.keep):
         pm.savepage(new)
 
-    pm.writepage(new, src, c.author, password)
+    pm.push(new, src, c.author, password)
 
     if checkApp(option.browse, c.browser, 'nobrowser'):
         cmd = "%s %s" % (c.browser, c.url)
