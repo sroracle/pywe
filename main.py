@@ -96,21 +96,31 @@ class PmConfig:
 
         if not self.url: self.url = self.api
 
+    def parsepage(self, page):
+        if not page: page = self.page
+        page = page.replace('.pmwiki', '')
+        page_group = page.split('.')[0]
+        try: page_name = page.split('.')[1]
+        except IndexError:
+            log('No group specified, using "Main"')
+            page_name = page_group
+            page_group = self.defaultgroup
+            self.page = page_group + '.' + page_name
+        self.url = self.url.replace('$Group', page_group).replace('$Name', page_name)
+        self.page = page
+
 #===================================
 # PmWiki Page Class
 #-----------------------------------
 class PmPage:
-    def __init__(self, api, page):
-        self._api = api
-        self.page = page
-        self.passwd = None
-        self.text = None
+    def __init__(self, config):
+        self.c = config
 
     def api(self, action=''):
-        if not action: return self._api
+        if not action: return self.c.api
         else:
-            page = self.page.replace('/', '.')
-            api = self._api.rstrip('/')
+            page = self.c.page.replace('/', '.')
+            api = self.c.api.rstrip('/')
             return '%s?n=%s&action=%s' % (api, page, action)
 
     def pull(self, author='', passwd=None):
@@ -132,7 +142,7 @@ class PmPage:
             payload = {
                 'action': 'edit',
                 'author': author,
-                'n':      self.page,
+                'n':      self.c.page,
                 'post':   1,
                 'text':   new
             }
@@ -148,7 +158,7 @@ class PmPage:
                 fatal(msg)
 
     def cache(self, text):
-        name = '%s.pmwiki' % self.page.replace('/', '.')
+        name = '%s.pmwiki' % self.c.page.replace('/', '.')
         f = open(name, 'w')
         f.write(text)
         f.close()
@@ -157,10 +167,10 @@ class PmPage:
     def open(self, editor, text):
         '''Open the page in your favorite editor'''
         if len(text) == 0:
-            log('New page:', self.page)
-            text = '(:comment %s is a new page, save as empty to abort:)' % self.page
+            log('New page:', self.c.page)
+            text = '(:comment %s is a new page, save as empty to abort:)' % self.c.page
 
-        f = NamedTemporaryFile('r+w', -1, '.pmwiki', self.page + '-')
+        f = NamedTemporaryFile('r+w', -1, '.pmwiki', self.c.page + '-')
         log('Using tempfile', f.name)
         try:
             f.write(text)
@@ -191,18 +201,6 @@ def fatal(*args):
 def checksetting(command):
     path = command.split(' ',1)[0]
     if not os.path.isfile(path): fatal("Couldn't find", path)
-
-def parsepage(c, page):
-    if not page: page = c.page
-    page_group = page.split('.')[0]
-    try: page_name = page.split('.')[1]
-    except IndexError:
-        log('No group specified, using "Main"')
-        page_name = page_group
-        page_group = c.defaultgroup
-        page = c.page = page_group + '.' + page_name
-    c.url = c.url.replace('$Group', page_group).replace('$Name', page_name)
-    return page
 
 #===================================
 # Main:
@@ -250,8 +248,8 @@ def main(argv=[]):
         for server in c.servers: print server
         sys.exit(0)
 
-    page = parsepage(c, option.page)
-    wiki = PmPage(c.api, page)
+    c.parsepage(option.page)
+    wiki = PmPage(c)
 
     #-----------------------------------
     # Password management
@@ -262,19 +260,16 @@ def main(argv=[]):
     #-----------------------------------
     # Command management
     if option.command == 'push':
-        # TODO: move to PmPage.push()
-        if os.path.isfile(page):
-            log('Pushing', page, '('+c.url+')')
-            f = open(page, 'r')
+        if os.path.isfile(option.page):
+            log('Pushing', c.page, '('+c.url+')')
+            f = open(option.page, 'r')
             new = f.read()
             f.close()
             old = ''
-            if page.endswith('.pmwiki'): wiki.page = page.replace('.pmwiki', '')
         else: raise NoSource
 
     elif option.command == 'delete':
-        # TODO: move to PmPage.delete()
-        delete = raw_input('Deleting: '+page+'. Are you sure? (Type delete)\n')
+        delete = raw_input('Deleting: ' + c.page + '. Are you sure? (Type delete)\n')
         if delete == 'delete':
             old = ''
             new = c.deleteword
@@ -283,14 +278,13 @@ def main(argv=[]):
             sys.exit(0)
 
     else:
-        # TODO: move to PmPage.edit()
         old = wiki.pull(c.author, password)
         if option.command == 'pull':
-            log('Pulling', page, '('+c.url+')')
+            log('Pulling', c.page, '('+c.url+')')
             log('Saved to', wiki.cache(old))
             sys.exit(0)
         else:
-            log('Editing', page, '('+c.url+')')
+            log('Editing', c.page, '('+c.url+')')
             checksetting(c.editor)
             new = wiki.open(c.editor, old)
 
