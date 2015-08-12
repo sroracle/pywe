@@ -1,6 +1,6 @@
 * Merge PmwikiPage and PmwikiConfig? probably not
 * Verbosity level support
 * Fix logger
-* move to Python 3
-* use subcommands <https://docs.python.org/2/library/argparse.html#sub-commands>
+* use subcommands <https://docs.python.org/3/library/argparse.html#sub-commands>
   * this requires cutting the subcommands into separate functions
+  * pull would have a subcommand -o to specify save location
