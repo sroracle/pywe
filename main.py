@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# vim: sw=4:ts=4:sts=4
 # Python-based PmWiki Editor (pywe)
 # Copyright (c) 2006 Benjamin C. Wilson. All Rights Reserved.
 # See LICENSE for licensing information.
@@ -28,6 +27,7 @@ class RequiredSetting:
 class PmConfig:
 
     def __init__(self, server):
+        '''Generates the PmConfig object from the INI file.'''
         c = self._config = ConfigParser()
         self.file = os.path.expanduser('~/.config/pywe.ini')
 
@@ -79,6 +79,7 @@ class PmConfig:
         self.resolve(self.editor)
 
     def resolve(self, command):
+        '''Checks the validity of the browser and editor settings.'''
         path = command.split(' ', 1)[0]
         if not os.path.isfile(path):
             if path.find('/') == -1:
@@ -91,6 +92,7 @@ class PmConfig:
 class PmPage:
 
     def __init__(self, config, name):
+        '''Parses the given name into a fully-qualified PmWiki page name.'''
         self.c = config
         if name:
             self.name = name
@@ -114,6 +116,7 @@ class PmPage:
         self.url = self.url.replace('$Name', self.shortname)
 
     def api(self, action=None):
+        '''Returns a PmWiki action URL.'''
         if not action:
             return self.c.api
         else:
@@ -122,7 +125,8 @@ class PmPage:
             return '%s?n=%s&action=%s' % (api, page, action)
 
     def pull(self):
-        '''Retrieves the PmWiki source from the website'''
+        '''Retrieves the page from the server.'''
+        log('Pulling', self.name, '('+self.url+')')
         url = self.api('source')
         payload = urlencode({'authid': self.c.author,
                              'authpw': self.c.password}).encode()
@@ -136,8 +140,17 @@ class PmPage:
         except IOError:
             fatal('Could not access', url)
 
-    def push(self, old, new):
-        '''Writes the page back to the website'''
+    def push(self, old='', new='', fromfile=False):
+        '''Writes the page back to the server.'''
+        if fromfile:
+            if os.path.isfile(self.file):
+                log('Pushing', self.name, '('+self.url+')')
+                with open(self.file, 'r') as f:
+                    new = f.read()
+                old = ''
+            else:
+                fatal("Couldn't find", self.file)
+
         if new == old:
             log("Aborting write: you didn't make any changes!")
         else:
@@ -157,50 +170,65 @@ class PmPage:
             try:
                 urlopen(url, payload)
             except IOError as error:
-                # FIXME: we end up here due to a 404 if the command was 'delete'
-                filename = self.cache(new)
-                fatal('Failed to write to website: %s\nChanges saved'
-                      ' to "%s"' % (error, filename))
+                if new != self.c.deleteword or str(error) != 'HTTP Error' \
+                                                             ' 404: Not Found':
+                    filename = self.cache(new)
+                    fatal('Failed to write to website: %s\nChanges saved'
+                          ' to "%s"' % (error, filename))
 
     def cache(self, text):
+        '''Saves a local copy of the page.'''
         name = '%s.pmwiki' % self.name.replace('/', '.')
-        f = open(name, 'w')
-        f.write(text)
-        f.close()
+        with open(name, 'w') as f:
+            f.write(text)
+
         return name
 
-    def open(self, editor, text):
-        '''Open the page in your favorite editor'''
-        if len(text) == 0:
+    def edit(self, editor, old):
+        '''Edits the page with the configured editor.'''
+        log('Editing', self.name, '('+self.url+')')
+        if not len(old):
             log('New page:', self.name)
-            text = '(:comment %s is a new page, save as empty to abort:)' \
-                   % self.name
+            old = '(:comment %s is a new page, leave only this line to' \
+                  ' abort:)' % self.name
 
-        f = NamedTemporaryFile('w+', suffix='.pmwiki', prefix=self.name + '-')
-        log('Using tempfile', f.name)
-        try:
-            f.write(text)
-            f.flush()
-            f.seek(0)
-        except IOError:
-            fatal('Could not write to the temporary file')
+        with NamedTemporaryFile('w+', suffix='.pmwiki',
+                                prefix=self.name + '-') as f:
+            log('Using tempfile', f.name)
+            try:
+                f.write(old)
+                f.flush()
+                f.seek(0)
+            except IOError:
+                fatal('Could not write to the temporary file')
 
-        cmd = editor + ' ' + f.name
-        os.system(cmd)
+            cmd = editor + ' ' + f.name
+            os.system(cmd)
 
-        output = f.read()
-        f.close()
-        return output
+            new = f.read()
+            if self.c.keep:
+                self.cache(new)
+            self.push(old, new)
+
+    def delete(self):
+        '''Deletes the page from the server.'''
+        confirm = input('Deleting: ' + self.name + '.\nAre you sure? (Type'
+                        ' delete to confirm)\n')
+        if confirm == 'delete':
+            self.push(new=self.c.deleteword)
+        else:
+            print('Deletion aborted')
 
 
 def log(*args):
+    '''Prints message to stderr.'''
     args = ' '.join(args) + '\n'
     sys.stderr.write(args)
 
 
 def fatal(*args):
-    args = ' '.join(args) + '\n'
-    sys.stderr.write(args)
+    '''Prints message to stderr and exits.'''
+    log(*args)
     sys.exit(1)
 
 
@@ -257,39 +285,17 @@ def main():
 
     # Command management
     if option.command == 'push':
-        if os.path.isfile(option.page):
-            log('Pushing', page.name, '('+page.url+')')
-            f = open(page.file, 'r')
-            new = f.read()
-            f.close()
-            old = ''
-        else:
-            fatal('No local source file to read from')
+        page.push(fromfile=True)
 
     elif option.command == 'delete':
-        delete = input('Deleting: ' + page.name + '. Are you sure? (Type'
-                       ' delete)\n')
-        if delete == 'delete':
-            old = ''
-            new = c.deleteword
-        else:
-            print('Deletion aborted')
-            sys.exit(0)
+        page.delete()
 
     else:
         old = page.pull()
         if option.command == 'pull':
-            log('Pulling', page.name, '('+page.url+')')
             log('Saved to', page.cache(old))
-            sys.exit(0)
         else:
-            log('Editing', page.name, '('+page.url+')')
-            new = page.open(c.editor, old)
-
-    if option.command == 'edit' and c.keep:
-        page.cache(new)
-
-    page.push(old, new)
+            new = page.edit(c.editor, old)
 
     if option.browse:
         cmd = '%s %s' % (c.browser, page.url)
