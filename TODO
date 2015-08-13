@@ -4,3 +4,4 @@
 * use subcommands <https://docs.python.org/3/library/argparse.html#sub-commands>
   * this requires cutting the subcommands into separate functions
   * pull would have a subcommand -o to specify save location
+* reintroduce DEFAULTSECT and add default server option

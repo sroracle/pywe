@@ -21,7 +21,7 @@ syntax case match
 
 syntax match pmwikiPageName  "\([A-Z][a-z]\+\.\)\?\([A-Z][A-Z0-9]*[a-z0-9]\+\)\{2,}"
 syntax match pmwikiPageLink  "|[^_].\{-}\S|"
-syntax match pmwikiPageName  "\[\[[^\*].\{-}\S\]\]"
+syntax match pmwikiPageName  "\[\[[^\[\]]\{-}\]\]"
 
 " Base constructs
 
@@ -38,10 +38,11 @@ syntax match pmwikiEM        "\*[^\_].\{-}\S\*"    " Markdown Emphasize Text
 syntax match pmwikiStrongEm  "___[^\__].\{-}\S___" " Markdown Embolden & Emphasize Text
 syntax match pmwikiStrong    "__[^\__].\{-}\S__" " Markdown Embolden & Emphasize Text
 syntax match pmwikiEM        "_[^\_].\{-}\S_"    " Markdown Emphasize Text
+syntax match pmwikiStrike    "{-.\{-}-}"
 
 syntax match pmwikiDiffSize  "\[+.+\]"           " Increase Text Size
 
-syntax match pmwikiFixFormat "^\s\+\S.\{-}\S"
+"syntax match pmwikiFixFormat "^\s\+\S.\{-}\S"
 syntax match pmwikiFixFormat "@@[^@]\S.\{-}\S@@"
 
 syntax match pmwikiFixFormat "\s=[^=].\{-}\S=\s"
@@ -50,7 +51,7 @@ syntax match pmwikiFixFormat "\s==\S.\{-}\S==$"
 syntax match pmwikiBackslash "\\*\s*$"
 syntax match pmwikiIndent    "^-\+>"
 syntax match pmwikiTable     "||"
-syntax match pmwikiCommand   "\(:[^:)].\{-}\S:\)"
+syntax match pmwikiCommand   "(:[^:)]\{-}:)"
 syntax match pmwikiStyle     "%[^%].\{-}\S%"
 syntax match pmWikiStyleEnd  "%%"
 "
@@ -60,7 +61,7 @@ syntax match pmwikiEM        "''[^\'{2,5}].\{-}\S''" " Embolden & Emphasize Text
 "
 " Titles
 syntax region pmwikiTitle     start=/^!\+ / end=/$/
-syntax region pmwikiFixFormat start=/^\(\t\|\s\)\+\S/ end=/$/
+"syntax region pmwikiFixFormat start=/^\(\t\|\s\)\+\S/ end=/$/
 syntax region pmwikiDiffSize  start=/\[+/ end=/+\]/  " Increase Text Size
 syntax region pmwikiDiffSize  start=/\[-/ end=/-\]/  " Decrease Text Size
 
@@ -76,7 +77,7 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
   HiLink pmwikiTitle        Comment
   HiLink pmwikiDiffSize     Comment
 
-  HiLink pmwikiFixFormat    Constant
+" HiLink pmwikiFixFormat    Constant
 
   HiLink pmwikiBackslash    Special
 
@@ -87,7 +88,7 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
   HiLink pmwikiDefList      Type
   HiLink pmwikiSeparator    Type
 
-  "HiLink pmwikiIndent       Special
+  HiLink pmwikiIndent       Special
 
   HiLink pmwikiCommand      PreProc
   HiLink pmwikiStyle        Statement
@@ -98,6 +99,7 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
   HiLink pmwikiPageName     Tag
 
   HiLink pmwikiEM           Identifier
+  HiLink pmwikiStrike       Ignore
 
   delcommand HiLink
 endif
