@@ -46,14 +46,14 @@ class PmConfig:
         layout = {
             'api': RequiredSetting,
             'url': '',
+            'defaultgroup': 'Main',
+            'defaultpage': '',
+            'deleteword':  'delete',
+            'keep': False,
             'author': RequiredSetting,
             'password': '',
-            'defaultgroup': 'Main',
-            'deleteword':  'delete',
             'browser': '',
             'editor': '',
-            'keep': False,
-            'page': '',
         }
 
         for setting in layout.keys():
@@ -97,7 +97,7 @@ class PmPage:
         if name:
             self.name = name
         else:
-            self.name = self.c.page
+            self.name = self.c.defaultpage
 
         self.file = self.name
         if self.name.rfind('.pmwiki') != -1:
