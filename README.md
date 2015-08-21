@@ -13,15 +13,14 @@ Recently, I wanted to edit pages using vim like I used to when pmwikiedit worked
 
 ## Files
 
-* Attach:main.py  This is the main application.
-* Attach:pywe.ini This is a sample configuration file for Pywe. You must modify this file and move it to ~/.config to run the script.
-* Attach:syntax.vim This is a vim syntax file for PmWiki.
+* [main.py](main.py): the main application.
+* [pywe.ini](pywe.ini): a sample configuration file for Pywe. You must modify this file and move it to `~/.config` to run the script.
+* [syntax.vim](syntax.vim): a vim syntax file for PmWiki's syntax. Move it to `~/.vim/syntax/pmwiki.vim`.
+* [ftdetect.vim](ftdetect.vim): a vim file that will activate the above file for all buffers ending in `.pmwiki`. Move it to `~/.vim/ftdetect/pmwiki.vim`.
 
 ## Usage
 
 `pywe [options] <command> Group.Pagename[.pmwiki]`
-
-`pywe --help: Will print this usage statement on the command line.`
 
 ## Commands
 <dl>
@@ -38,7 +37,7 @@ Recently, I wanted to edit pages using vim like I used to when pmwikiedit worked
 ## Options
 
 <dl>
-<dt>-a AUTHOR, --author=AUTHOR</dt>
+<dt>-a AUTHOR, --author AUTHOR</dt>
 <dd>sets author's name from the command line</dd>
 <dt>-b, --browse</dt>
 <dd>after edit, load the page in the configured browser</dd>
@@ -48,7 +47,7 @@ Recently, I wanted to edit pages using vim like I used to when pmwikiedit worked
 <dd>retain local copy of page source after edit</dd>
 <dt>-n, --nopass</dt>
 <dd>explicitly use no password when authenticating</dd>
-<dt>-s, --server=SERVER</dt>
+<dt>-s, --server SERVER</dt>
 <dd>Choose the configured server with which to work.</dd>
 <dt>--version</dt>
 <dd>show program's version number and exit.</dd>
@@ -58,11 +57,11 @@ Recently, I wanted to edit pages using vim like I used to when pmwikiedit worked
 
 **Deleting Pages.** Pywe will allow deleting of pages. When invoked, the delete option will ask the user to confirm deletion by typing the word 'delete,' which is meant to put a person in the process and avoid automated deletions.
 
-## Pywerc File
+## Configuration
 
-The Pywerc file is an RFC 822 compliant "*.ini" file formatted configuration file. This allows the user to configure options via a configuration file such that a different set of configurations exists per server. This is represented by the pywe [ options ] server:Group.Pagename style of usage. The "server" is the section delimiter in the .pywerc file. For more specific information on how it is used, please consult the Attach:sample-pywerc Δ file.
-Pywerc Configuration Variables. To reduce typing, the .pywerc file stores the following values on a per server basis.
+The configuration file is an RFC 822 compliant INI file. This allows the user to configure options via a configuration file such that a different set of configurations exists per server. This is represented by the `pywe --server SERVER Group.Pagename` style of usage. The "server" is the section delimiter in the configuration file.
 
+The following configuration options are supported for each server:
 <dl>
 <dt>api</dt>
 <dd>The URL of the pmwiki.php endpoint.</dd>
@@ -98,7 +97,7 @@ I would rather have one solid copy than various derivatives. If you'd like to co
 
 ## Release Notes
 
-* v.1.3.1 August 20, 2015 BenWilson August 20, 2015, at 05:56 AM 
+* v.1.3.1 August 20, 2015 BenWilson August 20, 2015, at 05:56 AM
 ** Updated License to CC BY-ND 4.0.
 * v.1.3.1 February 9, 2007 BenWilson February 09, 2007, at 09:56 AM
    * Added some authentication testing.
