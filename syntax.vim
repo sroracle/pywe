@@ -1,8 +1,8 @@
 " Vim syntax file
-" Language:	PMWiki
-" Maintainer:	Ben Wilson <ameen@dausha.net>
-" Last Change:	2004 July 2
-" Remark:	First version.
+" Language: PMWiki
+" Maintainer: Ben Wilson <ameen@dausha.net>
+" Last Change: 2017-06-30 by sroracle
+" Remark: Second version
 
 " Setup
 if version >= 600
@@ -14,56 +14,47 @@ else
 endif
 
 " Wiki variables and the like are case sensitive
-
 syntax case match
+syntax sync fromstart
 
-" Wiki Names
+" Links
+syntax match pmwikiPageName  /\([A-Z][a-z]\+\.\)\?\([A-Z][A-Z0-9]*[a-z0-9]\+\)\{2,}/
+syntax match pmwikiPageName  /Attach:[^\t "]\+/
+syntax region pmwikiFixFormat start=/\(Attach:[^\t "]\+\)\@<="/ end=/"/ oneline
+syntax region pmwikiPageName start=/\[\[/ end=/\]\]/ oneline
+syntax region pmwikiCategory start=/\[\[!/ end=/\]\]/ oneline
 
-syntax match pmwikiPageName  "\([A-Z][a-z]\+\.\)\?\([A-Z][A-Z0-9]*[a-z0-9]\+\)\{2,}"
-syntax match pmwikiPageLink  "|[^_].\{-}\S|"
-syntax match pmwikiPageName  "\[\[[^\[\]]\{-}\]\]"
+" Organization
+syntax region pmwikiTitle    start=/^!\+ / end=/$/  oneline " Headings
+syntax match pmwikiListItem  /^\s*\*\+\s/           " Unordered list
+syntax match pmwikiListItem  /^\s*\#\+\s/           " Ordered list
+"syntax match pmwikiDefList   /^:/                   " Definition list
+syntax match pmwikiSeparator /^----/                " Horizontal rule
+syntax match pmwikiBackslash /\\*\s*$/              " Line continuation
+syntax match pmwikiBackslash /\[\[<<\]\]/           " Line continuation
+syntax match pmwikiIndent    /^-\+>/
+syntax match pmwikiTable     /||/
 
-" Base constructs
+" Text formatting
+syntax match pmwikiStrike    /{-.\{-}-}/
+syntax region pmwikiFixFormat start=/@@/ end=/@@/ oneline
+syntax match pmwikiStrongEM  /'\{5}\('\{2,5}\)\@!.\{-}'\{5}/ " Bold and italic
+syntax match pmwikiStrong    /'\{3}\('\{2,5}\)\@!.\{-}'\{3}/ " Bold
+syntax match pmwikiEM        /'\{2}\('\{2,5}\)\@!.\{-}'\{2}/ " Italic
+syntax region pmwikiDiffSize  start=/\[+/ end=/+\]/ oneline  " Increase Text Size
+syntax region pmwikiDiffSize  start=/\[-/ end=/-\]/ oneline  " Decrease Text Size
 
-syntax match pmwikiListItem  "^\s*\*\+\s"           " Unordered List Item
-syntax match pmwikiListItem  "^\s*\#\+\s"           " Ordered   List Item
-syntax match pmwikiListItem  "^\s*\[0-9]+\.\+\s" " Ordered   List Item
-syntax match pmwikiDefList   "^\(   \).\+: \+"   " Defined list (not PmWiki)
-syntax match pmwikiSeparator "^----"            " Hard Rule
+" Directives
+syntax region pmwikiCommand start=/(:/ end=/:)/ oneline
+syntax match pmwikiStyle     /%[^%].\{-}\S%/
+syntax match pmWikiStyleEnd  /%%/
+syntax region pmwikiStyleBlock start=/>>/ end=/<</ oneline
 
-syntax match pmwikiEM    "\*[^\*].\{-}\S\*"  " Embolden text
-syntax match pmwikiStrongEm  "\*\*\*[^\\*\*].\{-}\S\*\*\*" " Markdown Embolden & Emphasize Text
-syntax match pmwikiStrong    "\*\*[^\\*\*].\{-}\S\*\*" " Markdown Embolden & Emphasize Text
-syntax match pmwikiEM        "\*[^\_].\{-}\S\*"    " Markdown Emphasize Text
-syntax match pmwikiStrongEm  "___[^\__].\{-}\S___" " Markdown Embolden & Emphasize Text
-syntax match pmwikiStrong    "__[^\__].\{-}\S__" " Markdown Embolden & Emphasize Text
-syntax match pmwikiEM        "_[^\_].\{-}\S_"    " Markdown Emphasize Text
-syntax match pmwikiStrike    "{-.\{-}-}"
-
-syntax match pmwikiDiffSize  "\[+.+\]"           " Increase Text Size
-
-"syntax match pmwikiFixFormat "^\s\+\S.\{-}\S"
-syntax match pmwikiFixFormat "@@[^@]\S.\{-}\S@@"
-
-syntax match pmwikiFixFormat "\s=[^=].\{-}\S=\s"
-syntax match pmwikiFixFormat "\s=[^=].\{-}\S=$"
-syntax match pmwikiFixFormat "\s==\S.\{-}\S==$"
-syntax match pmwikiBackslash "\\*\s*$"
-syntax match pmwikiIndent    "^-\+>"
-syntax match pmwikiTable     "||"
-syntax match pmwikiCommand   "(:[^:)]\{-}:)"
-syntax match pmwikiStyle     "%[^%].\{-}\S%"
-syntax match pmWikiStyleEnd  "%%"
-"
-syntax match pmwikiStrongEM  "'''''[^\'{2,5}].\{-}\S'''''" " Embolden & Emphasize Text
-syntax match pmwikiStrong    "'''[^\'{2,5}].\{-}\S'''" " Embolden & Emphasize Text
-syntax match pmwikiEM        "''[^\'{2,5}].\{-}\S''" " Embolden & Emphasize Text
-"
-" Titles
-syntax region pmwikiTitle     start=/^!\+ / end=/$/
-"syntax region pmwikiFixFormat start=/^\(\t\|\s\)\+\S/ end=/$/
-syntax region pmwikiDiffSize  start=/\[+/ end=/+\]/  " Increase Text Size
-syntax region pmwikiDiffSize  start=/\[-/ end=/-\]/  " Decrease Text Size
+" Nowiki and the like
+syntax region pmwikiFixFormat start=/^\(\t\|\s\)\+\S/ end=/$/ oneline
+syntax region pmwikiFixFormat start=/\[=/ end=/=\]/
+syntax region pmwikiFixFormat start=/\[@/ end=/@\]/
+syntax region pmwikiFixFormat start=/(:html:)/ end=/(:htmlend:)/
 
 " Define the default highlighting
 if version >= 508 || !exists("did_inittab_syntax_inits")
@@ -74,32 +65,32 @@ if version >= 508 || !exists("did_inittab_syntax_inits")
     command -nargs=+ HiLink hi def link <args>
   endif
 
-  HiLink pmwikiTitle        Comment
-  HiLink pmwikiDiffSize     Comment
+  HiLink pmwikiPageNameOld  Identifier
+  HiLink pmwikiPageLink     Identifier
+  HiLink pmwikiPageName     Identifier
+  HiLink pmwikiCategory     Special
 
-" HiLink pmwikiFixFormat    Constant
+  HiLink pmwikiTitle        Statement
+  HiLink pmwikiListItem     Comment
+  HiLink pmwikiDefList      Comment
+  HiLink pmwikiSeparator    Comment
+  HiLink pmwikiBackslash    Comment
+  HiLink pmwikiIndent       Comment
+  HiLink pmwikiTable        Comment
 
-  HiLink pmwikiBackslash    Special
-
-  HiLink pmwikiStrongEM     Constant
-
+  HiLink pmwikiStrike       Ignore
+  HiLink pmwikiStrongEM     Type
   HiLink pmwikiStrong       Type
-  HiLink pmwikiListItem     Type
-  HiLink pmwikiDefList      Type
-  HiLink pmwikiSeparator    Type
+  HiLink pmwikiEM           Type
+  HiLink pmwikiDiffSize     Type
 
-  HiLink pmwikiIndent       Special
+  HiLink pmwikiFixFormat    Constant
 
   HiLink pmwikiCommand      PreProc
-  HiLink pmwikiStyle        Statement
-  HiLink pmwikiStyleEnd     Statement
+  HiLink pmwikiStyle        PreProc
+  HiLink pmwikiStyleEnd     PreProc
+  HiLink pmwikiStyleBlock   PreProc
 
-  HiLink pmwikiPageNameOld  Tag
-  HiLink pmwikiPageLink     Tag
-  HiLink pmwikiPageName     Tag
-
-  HiLink pmwikiEM           Identifier
-  HiLink pmwikiStrike       Ignore
 
   delcommand HiLink
 endif
