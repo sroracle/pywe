@@ -51,7 +51,7 @@ syntax match pmWikiStyleEnd  /%%/
 syntax region pmwikiStyleBlock start=/>>/ end=/<</ oneline
 
 " Nowiki and the like
-syntax region pmwikiFixFormat start=/^\(\t\|\s\)\+\S/ end=/$/ oneline
+syntax region pmwikiFixFormat start=/^\(\t\|\s\)\+[^\t *#]\+/ end=/$/ oneline
 syntax region pmwikiFixFormat start=/\[=/ end=/=\]/
 syntax region pmwikiFixFormat start=/\[@/ end=/@\]/
 syntax region pmwikiFixFormat start=/(:html:)/ end=/(:htmlend:)/
